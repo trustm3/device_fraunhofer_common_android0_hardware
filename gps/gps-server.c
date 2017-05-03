@@ -1150,14 +1150,14 @@ gps_server_load_module(void)
 		return -1;
 	}
 
-	ALOGI("Hardware module '%s' loded", GPS_HARDWARE_MODULE_ID);
+	ALOGI("Hardware module '%s' loded", GPS_SERVER_HARDWARE_MODULE_ID);
 	ALOGI("	 Module API version: %d", module->module_api_version);
 	ALOGI("	 HAL API version: %d", module->hal_api_version);
 	ALOGI("	 ID: %s", module->id);
 	ALOGI("	 Name: %s", module->name);
 	ALOGI("	 Author: %s", module->author);
 
-	err = module->methods->open(module, GPS_HARDWARE_MODULE_ID, &device);
+	err = module->methods->open(module, GPS_SERVER_HARDWARE_MODULE_ID, &device);
 	if (err) {
 		ALOGE("couldn't open GPS hardware module: %s", strerror(-err));
 		return -1;
