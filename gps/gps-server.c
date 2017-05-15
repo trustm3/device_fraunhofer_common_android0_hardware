@@ -1175,8 +1175,8 @@ gps_server_load_module(void)
 		(const GpsXtraInterface *)gps_interface->get_extension(GPS_XTRA_INTERFACE);
 	agps_interface =
 		(const AGpsInterface *)gps_interface->get_extension(AGPS_INTERFACE);
-	supl_certificate_interface =
-		(const SuplCertificateInterface *)gps_interface->get_extension(SUPL_CERTIFICATE_INTERFACE);
+	supl_certificate_interface = NULL ;
+		//(const SuplCertificateInterface *)gps_interface->get_extension(SUPL_CERTIFICATE_INTERFACE);
 	gps_ni_interface =
 		(const GpsNiInterface *)gps_interface->get_extension(GPS_NI_INTERFACE);
 	agps_ril_interface =
