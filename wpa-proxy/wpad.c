@@ -92,11 +92,6 @@ static wpad_connection_t *last_ctrl_con = NULL;
 static char *wpad_latest_state_change_event = NULL;
 static char *wpad_connected_event = NULL;
 
-// cache for latest scan results sent as reply to SCAN_RESULTS command
-static char *wpad_latest_scan_result = NULL;
-// cache for latest scan results sent as reply to BSS RANGE command
-static char *wpad_latest_scan_result_bss = NULL;
-
 static list_t *wpad_connection_list = NULL;
 static list_t *wpad_wifi_enable_list = NULL;
 
@@ -125,25 +120,25 @@ wpad_free_state_strings(void)
 	mem_free(wpa_group_handshake);
 }
 
-/**
- * Helperfunction to find last occurence of a substring
- */
-static char *
-rstrstr(const char *src_str, const char *sub_str)
-{
-	if (src_str == NULL || sub_str == NULL || *sub_str == '\0')
-		return (char *) src_str;
-
-	char *res = NULL;
-	for (;;) {
-		char *cur_str = strstr(src_str, sub_str);
-		if (cur_str == NULL)
-			break;
-		res = cur_str;
-		src_str = cur_str + 1;
-	}
-	return res;
-}
+///**
+// * Helperfunction to find last occurence of a substring
+// */
+//static char *
+//rstrstr(const char *src_str, const char *sub_str)
+//{
+//	if (src_str == NULL || sub_str == NULL || *sub_str == '\0')
+//		return (char *) src_str;
+//
+//	char *res = NULL;
+//	for (;;) {
+//		char *cur_str = strstr(src_str, sub_str);
+//		if (cur_str == NULL)
+//			break;
+//		res = cur_str;
+//		src_str = cur_str + 1;
+//	}
+//	return res;
+//}
 
 wpad_connection_t *
 wpad_connection_new(int sock_container, bool is_monitor)
@@ -397,45 +392,6 @@ wpad_do_forward_event(const char* event, size_t event_len, wpad_connection_t *co
 }
 
 static void
-wpad_get_scan_results(void)
-{
-	ssize_t bytes_read;
-	int wpa_ctrl_fd = wpa_ctrl_get_fd(wpa_ctrl_conn_global);
-
-	// network list
-	if (-1 == send(wpa_ctrl_fd, SCAN_RESULTS_CMD, strlen(SCAN_RESULTS_CMD), 0)) {
-		ERROR_ERRNO("Failed to send SCAN_RESULTS command to ctrl_conn!");
-		return;
-	}
-	bytes_read = wpad_recv_msg(wpa_ctrl_fd, wpad_latest_scan_result, REPLY_BUF_SIZE);
-	if (-1 == bytes_read) {
-		ERROR_ERRNO("Failed to receive SCAN_RESULTS response from ctrl_conn!");
-	}
-
-	// detailed network list
-	if (-1 == send(wpa_ctrl_fd, BSS_RANGE_CMD, strlen(BSS_RANGE_CMD), 0)) {
-		ERROR_ERRNO("Failed to send BSS_RANGE command to ctrl_conn!");
-		return;
-	}
-	bytes_read = wpad_recv_msg(wpa_ctrl_fd, wpad_latest_scan_result_bss, REPLY_BUF_SIZE);
-	if (-1 == bytes_read) {
-		ERROR_ERRNO("Failed to receive BSS_RANGE response from ctrl_conn!");
-	}
-
-	if (strstr(wpad_latest_scan_result_bss, "####") == NULL) {
-		// truncate results list to fit in one message
-		char *end = rstrstr(wpad_latest_scan_result_bss, "====\n");
-		if (end) {
-			memcpy(end, "####\n", sizeof("####\n"));
-			INFO("Truncated scan results list to fit in one message");
-		}
-		// loging only provides 4k puffer including format
-		TRACE("BSS: 3 len=%d\n", bytes_read);
-		TRACE("%s", wpad_latest_scan_result_bss);
-	}
-}
-
-static void
 wpad_monitor_global_cb_recv(int fd, unsigned events, UNUSED event_io_t *io, UNUSED void *data)
 {
 	ssize_t bytes_read;
@@ -494,8 +450,6 @@ wpad_monitor_global_cb_recv(int fd, unsigned events, UNUSED event_io_t *io, UNUS
 		}
 
 		if (strstr(buf, "CTRL-EVENT-SCAN-RESULTS")) {
-			// update scan_results cache
-			wpad_get_scan_results();
 			wpad_state_scanning = false;
 		}
 
@@ -567,6 +521,7 @@ wpad_allowed_ctrl_cmd(const char* command, connection_state_t state)
 				strstr(command, "STATUS") != NULL ||
 				strstr(command, "GET_NETWORK") != NULL ||
 				strstr(command, "LIST_NETWORKS") != NULL ||
+				((strstr(command, "SCAN") != NULL) && !wpad_state_scanning) ||
 				strstr(command, "SCAN_RESULTS") != NULL ||
 				strstr(command, "BSS") != NULL
 			) {
@@ -666,20 +621,7 @@ wpad_cb_control_recv(int fd, unsigned events, event_io_t *io, void *data)
 
 		// return buffered detailed scan results only
 		if (strncmp(buf, BSS_RANGE_CMD, strlen(BSS_RANGE_CMD)) == 0) {
-			memcpy(buf, wpad_latest_scan_result_bss, REPLY_BUF_SIZE-1);
-			wpad_latest_scan_result_bss[REPLY_BUF_SIZE-1] = '\0'; // assure that sring terminates
-			bytes_read = strlen(wpad_latest_scan_result_bss);
-
 			send_connected = true;
-			goto out;
-		}
-
-		// return buffer scan results only
-		if (strncmp(buf, SCAN_RESULTS_CMD, strlen(SCAN_RESULTS_CMD)) == 0) {
-			memcpy(buf, wpad_latest_scan_result, REPLY_BUF_SIZE-1);
-			wpad_latest_scan_result[REPLY_BUF_SIZE-1] = '\0'; // assure that sring terminates
-			bytes_read = strlen(wpad_latest_scan_result);
-			goto out;
 		}
 
 		// Doing actual command forwarding here
@@ -918,8 +860,6 @@ main(UNUSED int argc,char **argv)
 	event_add_signal(sig);
 
 	wpad_init_state_strings();
-	wpad_latest_scan_result = mem_alloc(REPLY_BUF_SIZE);
-	wpad_latest_scan_result_bss = mem_alloc(REPLY_BUF_SIZE);
 
 	// initial connct to wpa supplicant
 	wpad_reconnect();
@@ -939,8 +879,6 @@ main(UNUSED int argc,char **argv)
 	INFO("Starting event loop ...");
 	event_loop();
 
-	mem_free(wpad_latest_scan_result_bss);
-	mem_free(wpad_latest_scan_result);
 	wpad_free_state_strings();
 
 	return 0;
