@@ -1377,7 +1377,7 @@ core_cb_handler(void *pmsg)
 		break;
 
 	case GNSS_NAVIGATION_MESSAGE_CB:
-		if (gps_navigation_message_callbacks->navigation_message_callback) {
+		if (gps_navigation_message_callbacks->gnss_navigation_message_callback) {
 			struct gnss_navigation_message_cb_s *msg = pmsg;
 			msg->message.data = msg->message_data;
 			gps_navigation_message_callbacks->gnss_navigation_message_callback(&msg->message);
