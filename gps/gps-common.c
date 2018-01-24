@@ -72,9 +72,9 @@ gps_msg_recv(int sock, void *pmsg, size_t max_size)
 			size = hdr->size;
 	};
 
-	ALOGV("%s: fd=%d op=%s size=%d", __func__, sock, gps_msg_op_name(hdr->op), done);
+	ALOGV("%s: fd=%d op=%s size=%zu", __func__, sock, gps_msg_op_name(hdr->op), done);
 	if (done != hdr->size)
-		ALOGE("%s: inconsistant number of bytes received: done=%d size=%d",
+		ALOGE("%s: inconsistant number of bytes received: done=%zu size=%zu",
 		      __func__, done, hdr->size);
 
 	return done;
@@ -92,7 +92,7 @@ gps_msg_send(int sock, void *pmsg, size_t size)
 	ssize_t ret;
 
 	if (size != hdr->size)
-		ALOGE("%s: size does not match header size: %d != %d", __func__, size, hdr->size);
+		ALOGE("%s: size does not match header size: %zu != %zu", __func__, size, hdr->size);
 
         while (done < size) {
 		size_t tx_size = (size - done < SNDRCV_BUF_SIZE) ? size - done : SNDRCV_BUF_SIZE;
@@ -107,14 +107,14 @@ gps_msg_send(int sock, void *pmsg, size_t size)
 				sched_yield();
 				continue;
 			} else {
-				ALOGE("send failed: msg_size=%d max_msg_size=%d,'%s'", size, SNDRCV_BUF_SIZE, strerror(errno));
+				ALOGE("send failed: msg_size=%zu max_msg_size=%d,'%s'", size, SNDRCV_BUF_SIZE, strerror(errno));
 				done = ret;
 				break;
 			}
 		}
 		done += ret;
 	};
-	ALOGV("%s: fd=%d op=%s size=%d", __func__, sock, gps_msg_op_name(hdr->op), done);
+	ALOGV("%s: fd=%d op=%s size=%zu", __func__, sock, gps_msg_op_name(hdr->op), done);
 	return done;
 }
 
@@ -122,12 +122,12 @@ void *gps_msg_alloc(enum gps_msg_op op, size_t size)
 {
 	struct gps_msg_header_s *hdr = malloc(size);
 
-	ALOGV("%s: op=%s size=%d", __func__, gps_msg_op_name(op), size);
+	ALOGV("%s: op=%s size=%zu", __func__, gps_msg_op_name(op), size);
 	if (hdr) {
 		hdr->op = op;
 		hdr->size = size;
 	} else {
-		ALOGE("%s: couldn't allocate %d bytes for %s",
+		ALOGE("%s: couldn't allocate %zu bytes for %s",
 		      __func__, size, gps_msg_op_name(op));
 	}
 	return hdr;
