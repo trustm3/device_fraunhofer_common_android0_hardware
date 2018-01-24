@@ -420,6 +420,7 @@ gps_nmea_cb(GpsUtcTime timestamp, const char *nmea, int length)
 static void
 gps_set_capabilities_cb(uint32_t capabilities)
 {
+	capabilities = 0x37;
 	ALOGD("%s: capabilities %x", __func__, capabilities);
 
 	struct gps_set_capabilities_cb_s msg = {
